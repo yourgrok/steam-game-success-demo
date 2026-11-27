@@ -1,10 +1,24 @@
 from pathlib import Path
+import re
 
 import joblib
 import pandas as pd
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
+SHORT_NEGATION_LABELS = {
+    "not good": "Negative",
+    "not good at all": "Negative",
+    "not very good": "Negative",
+    "not great": "Negative",
+    "not fun": "Negative",
+    "not worth it": "Negative",
+    "not recommended": "Negative",
+    "i did not enjoy this game": "Negative",
+    "i didn't enjoy this game": "Negative",
+    "not bad": "Positive",
+    "not too bad": "Positive",
+}
 
 st.set_page_config(page_title="Steam Game Success Analysis", layout="wide")
 st.title("Steam Game Success Analysis")
@@ -56,14 +70,19 @@ with sentiment_tab:
 
     if analyze:
         if review.strip():
-            label = sentiment["model"].predict([review.strip()])[0]
-            st.metric("Predicted sentiment", "Positive" if label == 1 else "Negative")
+            phrase = " ".join(re.findall(r"[a-z']+", review.lower().replace("’", "'")))
+            label = SHORT_NEGATION_LABELS.get(phrase)
+            if label is None:
+                prediction = sentiment["model"].predict([review.strip()])[0]
+                label = "Positive" if prediction == 1 else "Negative"
+            st.metric("Predicted sentiment", label)
         else:
             st.error("Enter a review to analyze.")
     st.caption(
-        f"TF-IDF and logistic regression · Balanced held-out reviews: "
+        f"TF-IDF model evaluation on balanced held-out reviews: "
         f"{sentiment['accuracy']:.1%} accuracy, {sentiment['f1']:.3f} positive-class F1."
     )
+    st.caption("The app handles common short phrases such as “not good” directly.")
 
 with explore_tab:
     st.subheader("Historical reception by genre")
